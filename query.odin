@@ -7,7 +7,7 @@ import "core:fmt"
 
 // Simple general fetching methods
 
-world_fetch_all :: proc(world: ^World, entity_ids: []i64, entity_amount: ^int) -> i32 {
+world_fetch_all :: proc(world: ^World, entity_ids: ^[]i64, entity_amount: ^int) -> i32 {
     assert(world != nil, "World is invalid")
     assert(entity_amount != nil, "Null reference")
 
@@ -17,6 +17,8 @@ world_fetch_all :: proc(world: ^World, entity_ids: []i64, entity_amount: ^int) -
 
     for i in 0..<min(buffer_limit, total_count) {
         all_entity_ids, err := slice.map_keys(world.entity_map)
+        new_entity_ids := copy_extend(entity_ids, 1)
+        entity_ids^ = new_entity_ids
         entity_ids[count] = all_entity_ids[i]
         count += 1
     }
@@ -118,6 +120,14 @@ util_chunkrange :: proc(w: ^World, ch: ^map[i64]i64, cx, cy, cz: int, radius: i8
     }
 }
 
+// copy and extend an array in a larger array
+@(private="file")
+copy_extend :: proc(source: ^$T/[]$E, added_length: int) -> (T) {
+    new_array := make(T, len(source) + added_length)
+    copy(new_array[:], source[:])
+    return new_array
+}
+
 // mini helper for pushing entity
 // if it will overflow do not push, just increase counter for future statistics
 @(private="file")
@@ -125,8 +135,7 @@ push_entity :: proc(entity_id: i64, buffer_limit: int, result_amount: ^i64, enti
     if (result_amount^ + 1) <= i64(buffer_limit) {
         // copy the previous entities array with 1 more space 
         // for the new entity_id to add to the query
-        new_entity_ids := make([]i64, len(entity_ids) + 1)
-        copy(new_entity_ids[:], entity_ids[:])
+        new_entity_ids := copy_extend(entity_ids, 1)
         new_entity_ids[result_amount^] = entity_id
         entity_ids^ = new_entity_ids
     }
