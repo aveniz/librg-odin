@@ -3,6 +3,7 @@ package librg
 import "core:mem"
 import slice "core:slice"
 import runtime "base:runtime"
+import "core:fmt"
 
 // Simple general fetching methods
 
@@ -120,9 +121,14 @@ util_chunkrange :: proc(w: ^World, ch: ^map[i64]i64, cx, cy, cz: int, radius: i8
 // mini helper for pushing entity
 // if it will overflow do not push, just increase counter for future statistics
 @(private="file")
-push_entity :: proc(entity_id: i64, buffer_limit: int,result_amount: ^i64, entity_ids: ^[]i64) {
+push_entity :: proc(entity_id: i64, buffer_limit: int, result_amount: ^i64, entity_ids: ^[]i64) {
     if (result_amount^ + 1) <= i64(buffer_limit) {
-        entity_ids[result_amount^] = entity_id
+        // copy the previous entities array with 1 more space 
+        // for the new entity_id to add to the query
+        new_entity_ids := make([]i64, len(entity_ids) + 1)
+        copy(new_entity_ids[:], entity_ids[:])
+        new_entity_ids[result_amount^] = entity_id
+        entity_ids^ = new_entity_ids
     }
     result_amount^ += 1
 }
