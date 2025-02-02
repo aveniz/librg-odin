@@ -1,6 +1,7 @@
 package librg
 
 import "core:mem"
+import "core:fmt"
 import rand "core:math/rand"
 import runtime "base:runtime"
 
@@ -155,7 +156,7 @@ entity_owner_set :: proc(world: ^World, entity_id: i64, owner_id: i64) -> i8 {
     entity.flag_owner_updated = true
     if entity.owner_id != OWNER_INVALID {
         // Set new token, and make sure to prevent collisions
-        newtoken: u16
+        newtoken: u16 = 0
         for {
             generator := runtime.default_random_generator(&world.random)
             newtoken = u16(u16(rand.uint32(generator)) % max(u16))
@@ -167,6 +168,8 @@ entity_owner_set :: proc(world: ^World, entity_id: i64, owner_id: i64) -> i8 {
         snapshot, ok := &world.owner_map[owner_id]
         if !ok {
             world.owner_map[owner_id] = make(map[i64]i64)
+            owner_map := &world.owner_map[owner_id]
+            owner_map[entity_id] = 0
         }
     } else {
         entity.ownership_token = 0
