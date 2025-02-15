@@ -1,6 +1,7 @@
-package librg
+package worldnet
 
 import "core:mem"
+import "core:fmt"
 import "core:math"
 import rand "core:math/rand"
 
@@ -84,35 +85,35 @@ world_entities_tracked :: proc(world: ^World) -> i64 {
 }
 
 // Configuration methods
-config_chunkamount_set :: proc(world: ^World, x, y, z: u16) -> i8 {
+config_chunkamount_set :: proc(world: ^World, x, y, z: u32) -> i8 {
     if world == nil do return WORLD_INVALID
     world.worldsize = {x == 0 ? 1 : x, y == 0 ? 1 : y, z == 0 ? 1 : z}
     return OK
 }
 
-config_chunkamount_get :: proc(world: ^World) -> (x, y, z: u16) {
+config_chunkamount_get :: proc(world: ^World) -> (x, y, z: u32) {
     if world == nil do return 0, 0, 0
     return world.worldsize.x, world.worldsize.y, world.worldsize.z
 }
 
-config_chunksize_set :: proc(world: ^World, x, y, z: u16) -> i8 {
+config_chunksize_set :: proc(world: ^World, x, y, z: u32) -> i8 {
     if world == nil do return WORLD_INVALID
     world.chunksize = {x == 0 ? 1 : x, y == 0 ? 1 : y, z == 0 ? 1 : z}
     return OK
 }
 
-config_chunksize_get :: proc(world: ^World) -> (x, y, z: u16) {
+config_chunksize_get :: proc(world: ^World) -> (x, y, z: u32) {
     if world == nil do return 0, 0, 0
     return world.chunksize.x, world.chunksize.y, world.chunksize.z
 }
 
-config_chunkoffset_set :: proc(world: ^World, x, y, z: i16) -> i8 {
+config_chunkoffset_set :: proc(world: ^World, x, y, z: i32) -> i8 {
     if world == nil do return WORLD_INVALID
     world.chunkoffset = {x, y, z}
     return OK
 }
 
-config_chunkoffset_get :: proc(world: ^World) -> (x, y, z: i16) {
+config_chunkoffset_get :: proc(world: ^World) -> (x, y, z: i32) {
     if world == nil do return 0, 0, 0
     return world.chunkoffset.x, world.chunkoffset.y, world.chunkoffset.z
 }
@@ -150,6 +151,7 @@ event_entity_get :: proc(event: ^Event) -> i64 {
     return event.entity_id
 }
 
+// TODO: REMOVE
 event_buffer_get :: proc(event: ^Event) -> []byte {
     if event == nil do return nil
     return event.buffer
@@ -157,7 +159,7 @@ event_buffer_get :: proc(event: ^Event) -> []byte {
 
 event_size_get :: proc(event: ^Event) -> i32 {
     if event == nil do return EVENT_INVALID
-    return i32(len(event.buffer))
+    return i32(event.size)
 }
 
 event_userdata_get :: proc(event: ^Event) -> rawptr {
@@ -166,7 +168,7 @@ event_userdata_get :: proc(event: ^Event) -> rawptr {
 }
 
 // Utility functions
-util_chunkoffset_line :: proc(v, off, size: i16) -> i16 {
+util_chunkoffset_line :: proc(v, off, size: i32) -> i32 {
     o: f32 = 0 // OFFSET_BEG
     switch off {
     case OFFSET_MID: o = f32(size) / 2
@@ -175,23 +177,23 @@ util_chunkoffset_line :: proc(v, off, size: i16) -> i16 {
 
     // integrate the offset
     o += f32(v)
-    return i16(o >= 0 ? math.floor(o) : math.ceil(o))
+    return i32(o >= 0 ? math.floor(o) : math.ceil(o))
 }
 
-chunk_from_chunkpos :: proc(world: ^World, chunk_x, chunk_y, chunk_z: i16) -> Chunk {
+chunk_from_chunkpos :: proc(world: ^World, chunk_x, chunk_y, chunk_z: i32) -> Chunk {
     if world == nil do return WORLD_INVALID
-    chx := util_chunkoffset_line(chunk_x, world.chunkoffset.x, i16(world.worldsize.x))
-    chy := util_chunkoffset_line(chunk_y, world.chunkoffset.y, i16(world.worldsize.y))
-    chz := util_chunkoffset_line(chunk_z, world.chunkoffset.z, i16(world.worldsize.z))
+    chx := util_chunkoffset_line(chunk_x, world.chunkoffset.x, i32(world.worldsize.x))
+    chy := util_chunkoffset_line(chunk_y, world.chunkoffset.y, i32(world.worldsize.y))
+    chz := util_chunkoffset_line(chunk_z, world.chunkoffset.z, i32(world.worldsize.z))
 
     // return error if the size is too far off the max world limits
-    if chx < 0 || chx >= i16(world.worldsize.x) ||
-       chy < 0 || chy >= i16(world.worldsize.y) ||
-       chz < 0 || chz >= i16(world.worldsize.z) {
+    if chx < 0 || chx >= i32(world.worldsize.x) ||
+       chy < 0 || chy >= i32(world.worldsize.y) ||
+       chz < 0 || chz >= i32(world.worldsize.z) {
         return CHUNK_INVALID
     }
 
-    id := Chunk((chz * i16(world.worldsize.y) * i16(world.worldsize.x)) + (chy * i16(world.worldsize.x)) + chx)
+    id := Chunk((chz * i32(world.worldsize.y) * i32(world.worldsize.x)) + (chy * i32(world.worldsize.x)) + chx)
     if id < 0 || id > Chunk(world.worldsize.x * world.worldsize.y * world.worldsize.z) {
         return CHUNK_INVALID
     }
@@ -199,12 +201,10 @@ chunk_from_chunkpos :: proc(world: ^World, chunk_x, chunk_y, chunk_z: i16) -> Ch
     return id
 }
 
-chunk_to_chunkpos :: proc(world: ^World, id: Chunk, chunk_x, chunk_y, chunk_z: ^i16) -> (ok: i8) {
+// convert chunk to world x, y and z position 
+chunk_to_chunkpos :: proc(world: ^World, id: Chunk, chunk_x, chunk_y, chunk_z: ^i32) -> (ok: i8) {
     if world == nil do return CHUNK_INVALID
     wld: ^World = world;
-    chunk_x := chunk_x
-    chunk_y := chunk_y
-    chunk_z := chunk_z
 
     if id < Chunk(0) || id > Chunk(wld.worldsize.x * wld.worldsize.y * wld.worldsize.z) {
         return CHUNK_INVALID
@@ -215,9 +215,9 @@ chunk_to_chunkpos :: proc(world: ^World, id: Chunk, chunk_x, chunk_y, chunk_z: ^
     y := r1 / i64(wld.worldsize.x)
     x := r1 % i64(wld.worldsize.x)
 
-    chunk_x^ = i16(x) - util_chunkoffset_line(0, wld.chunkoffset.x, i16(wld.worldsize.x))
-    chunk_y^ = i16(y) - util_chunkoffset_line(0, wld.chunkoffset.y, i16(wld.worldsize.y))
-    chunk_z^ = i16(z) - util_chunkoffset_line(0, wld.chunkoffset.z, i16(wld.worldsize.z))
+    chunk_x^ = i32(x) - util_chunkoffset_line(0, wld.chunkoffset.x, i32(wld.worldsize.x))
+    chunk_y^ = i32(y) - util_chunkoffset_line(0, wld.chunkoffset.y, i32(wld.worldsize.y))
+    chunk_z^ = i32(z) - util_chunkoffset_line(0, wld.chunkoffset.z, i32(wld.worldsize.z))
 
     return OK
 }
@@ -225,7 +225,7 @@ chunk_to_chunkpos :: proc(world: ^World, id: Chunk, chunk_x, chunk_y, chunk_z: ^
 chunk_from_realpos :: proc(world: ^World, x, y, z: f64) -> Chunk {
     if world == nil do return WORLD_INVALID
     return chunk_from_chunkpos(world, 
-        i16(x / f64(world.chunksize.x)),
-        i16(y / f64(world.chunksize.y)),
-        i16(z / f64(world.chunksize.z)))
+        i32(x / f64(world.chunksize.x)),
+        i32(y / f64(world.chunksize.y)),
+        i32(z / f64(world.chunksize.z)))
 }
