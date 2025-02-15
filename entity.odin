@@ -1,4 +1,4 @@
-package librg
+package worldnet
 
 import "core:mem"
 import "core:fmt"
