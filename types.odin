@@ -1,4 +1,4 @@
-package librg
+package worldnet
 
 import "core:mem"
 import runtime "base:runtime"
@@ -25,8 +25,8 @@ when ENABLE_EXTENDED_EVENTBUFFER {
 }
 
 OFFSET_BEG :: i32(0x8000)
-OFFSET_MID :: i16(0x0000)
-OFFSET_END :: i16(0x7fff)
+OFFSET_MID :: i32(0x0000)
+OFFSET_END :: i32(0x7fff)
 
 EventType :: enum u8 {
     WRITE_CREATE,
@@ -40,7 +40,7 @@ EventType :: enum u8 {
     ERROR_REMOVE,
 }
 
-EventHandler :: #type proc(world: ^World, event: ^Event) -> i32
+EventHandler :: #type proc(world: ^World, event: ^Event) -> (i32, []byte)
 
 Visibility :: enum u8 {
     DEFAULT,
@@ -101,7 +101,7 @@ Event :: struct {
     type: u8,           // type of the event that was called, might be useful in bindings
     owner_id: i64,      // id of the owner who this event is called for
     entity_id: i64,     // id of an entity which this event is called about
-    buffer: []byte,     // ptr to the buffer data
+    buffer: []byte,     // buffer data
     size: int,          // depending on the event type, can show maximum amount of data you are able to write, or amount of data you can read
     userdata: rawptr,   // userpointer that is passed from librg_world_write/librg_world_read fns
 }
@@ -116,9 +116,9 @@ World :: struct {
     allocator: mem.Allocator,
     random: runtime.Default_Random_State,
 
-    worldsize: struct { x, y, z: u16 },
-    chunksize: struct { x, y, z: u16 },
-    chunkoffset: struct { x, y, z: i16 },
+    worldsize: struct { x, y, z: u32 },
+    chunksize: struct { x, y, z: u32 },
+    chunkoffset: struct { x, y, z: i32 },
 
     handlers: [PackagingType.PACKAGING_TOTAL]EventHandler,
     entity_map: map[i64]Entity,
