@@ -1,4 +1,4 @@
-package librg
+package worldnet
 
 import "core:mem"
 import slice "core:slice"
@@ -110,7 +110,7 @@ util_chunkrange :: proc(w: ^World, ch: ^map[i64]i64, cx, cy, cz: int, radius: i8
         for y := -int(radius); y <= int(radius); y += 1 {
             for x := -int(radius); x <= int(radius); x += 1 {
                 if x*x + y*y + z*z <= radius2 {
-                    id := chunk_from_chunkpos(w, i16(cx+x), i16(cy+y), i16(cz+z))
+                    id := chunk_from_chunkpos(w, i32(cx+x), i32(cy+y), i32(cz+z))
                     if id != CHUNK_INVALID {
                         ch[i64(id)] = 1
                     }
@@ -169,17 +169,20 @@ world_query :: proc(world: ^World, owner_id: i64, chunk_radius: u8, entity_ids: 
         // and skip, if used is not an owner of the entity
         if entity.owner_id != owner_id do continue
 
+
         // fetch, or create chunk set in this dimension if does not exist
         dim_chunks, ok := &world.dimensions[i64(entity.dimension)]
         if !ok {
             world.dimensions[i64(entity.dimension)] = make(map[i64]i64)
+            dim := &world.dimensions[i64(entity.dimension)]
+            dim[0] = 0
             dim_chunks = &world.dimensions[i64(entity.dimension)]
         }
 
         // add entity chunks to the total visible chunks
         for k in 0..<ENTITY_MAXCHUNKS {
             if entity.chunks[k] == CHUNK_INVALID do break
-            chx, chy, chz: i16
+            chx, chy, chz: i32
             chunk_to_chunkpos(world, entity.chunks[k], &chx, &chy, &chz)
             util_chunkrange(world, dim_chunks, int(chx), int(chy), int(chz), i8(chunk_radius))
         }
@@ -190,6 +193,7 @@ world_query :: proc(world: ^World, owner_id: i64, chunk_radius: u8, entity_ids: 
         if entity.owner_id == owner_id do continue
 
         chunks, ok := &world.dimensions[i64(entity.dimension)]
+        // skip if there are no chunks in this dimension
         if !ok do continue
 
         // owner visibility (personal)
